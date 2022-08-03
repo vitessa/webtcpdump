@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"time"
-	"webtcpdump/site"
+	"github.com/vitessa/webtcpdump/site"
 )
 
 var host = flag.String("n", "", "listen port for webtcpdump")
