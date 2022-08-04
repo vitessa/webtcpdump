@@ -1,9 +1,9 @@
 package site
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 )
 
@@ -15,18 +15,25 @@ var (
 	form_key_dst_port string = "DstPort"
 )
 
+func siteIndex() ([]byte, error) {
+	var data bytes.Buffer
+
+	if tmpl, err := template.New("tmplIndex").Parse(tmplIndex); err != nil {
+		return nil, err
+	} else if err := tmpl.Execute(&data, nil); err != nil {
+		return nil, err
+	}
+
+	return data.Bytes(), nil
+}
+
 func OnIndex(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 
-		tmpl, err := template.New("tmplIndex").Parse(tmplIndex)
-		if err != nil {
+		if data, err := siteIndex(); err != nil {
 			fmt.Fprintf(w, err.Error())
-			return
-		}
-
-		if err = tmpl.Execute(w, nil); err != nil {
-			log.Println(err.Error())
-			return
+		} else {
+			w.Write(data)
 		}
 	}
 }

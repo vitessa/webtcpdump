@@ -1,9 +1,9 @@
 package site
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -62,33 +62,38 @@ func getPortStat(port uint16) ([]netStat, error) {
 	return stats, nil
 }
 
+func siteEstablish(info netStatInfo) ([]byte, error) {
+	var data bytes.Buffer
+
+	if tmpl, err := template.New("tmplEstablish").Parse(tmplEstablish); err != nil {
+		return nil, err
+	} else if err := tmpl.Execute(&data, info); err != nil {
+		return nil, err
+	}
+
+	return data.Bytes(), nil
+}
+
 func OnEstablish(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		port, err := strconv.Atoi(r.FormValue(form_key_port))
-		if err != nil {
+		var info netStatInfo
+
+		// 解析参数、提取端口、网络信息
+		if err := r.ParseForm(); err != nil {
 			fmt.Fprintf(w, err.Error())
-			return
-		}
-
-		stats, err := getPortStat(uint16(port))
-		if err != nil {
+		} else if port, err := strconv.Atoi(r.FormValue(form_key_port)); err != nil {
 			fmt.Fprintf(w, err.Error())
-			return
-		}
-
-		info := netStatInfo{
-			Stats: stats,
-		}
-
-		tmpl, err := template.New("tmplEstablish").Parse(tmplEstablish)
-		if err != nil {
+		} else if stats, err := getPortStat(uint16(port)); err != nil {
 			fmt.Fprintf(w, err.Error())
-			return
+		} else {
+			info.Stats = stats
 		}
 
-		if err = tmpl.Execute(w, info); err != nil {
-			log.Println(err.Error())
-			return
+		// 解析模板，发送信息
+		if data, err := siteEstablish(info); err != nil {
+			fmt.Fprintf(w, err.Error())
+		} else {
+			w.Write(data)
 		}
 	}
 }

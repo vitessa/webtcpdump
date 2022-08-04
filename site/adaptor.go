@@ -1,9 +1,9 @@
 package site
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
-	"log"
 	"net"
 	"net/http"
 	"sort"
@@ -51,15 +51,7 @@ func getActivatedNetDevice() (adaptors []adaptor, err error) {
 			}
 		}
 
-		adaptors = append(
-			adaptors,
-			adaptor{
-				Idx:  ifc.Index,
-				Name: ifc.Name,
-				IPv4: ipv4,
-				IPv6: ipv6,
-				MTU:  ifc.MTU,
-			})
+		adaptors = append(adaptors, adaptor{Idx: ifc.Index, Name: ifc.Name, IPv4: ipv4, IPv6: ipv6, MTU: ifc.MTU})
 	}
 
 	// 排序
@@ -68,20 +60,32 @@ func getActivatedNetDevice() (adaptors []adaptor, err error) {
 	return
 }
 
+func siteAdaptor(info adaptorInfo) ([]byte, error) {
+	var data bytes.Buffer
+
+	if tmpl, err := template.New("tmplAdaptor").Parse(tmplAdaptor); err != nil {
+		return nil, err
+	} else if err := tmpl.Execute(&data, info); err != nil {
+		return nil, err
+	}
+
+	return data.Bytes(), nil
+}
+
 func OnAdaptor(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		var info adaptorInfo
-		info.Adaptors, _ = getActivatedNetDevice()
 
-		tmpl, err := template.New("tmplAdaptor").Parse(tmplAdaptor)
-		if err != nil {
+		if adaptors, err := getActivatedNetDevice(); err != nil {
 			fmt.Fprintf(w, err.Error())
-			return
+		} else {
+			info.Adaptors = adaptors
 		}
 
-		if err = tmpl.Execute(w, info); err != nil {
-			log.Println(err.Error())
-			return
+		if data, err := siteAdaptor(info); err != nil {
+			fmt.Fprintf(w, err.Error())
+		} else {
+			w.Write(data)
 		}
 	}
 }

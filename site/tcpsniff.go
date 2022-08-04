@@ -1,6 +1,7 @@
 package site
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"html/template"
@@ -8,7 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"github.com/vitessa/webtcpdump/sniff"
+	"webtcpdump/sniff"
 
 	"github.com/gorilla/websocket"
 )
@@ -20,39 +21,46 @@ type tcpSniffInfo struct {
 	DstPort uint16
 }
 
-func parseParam(r *http.Request) (tcpSniffInfo, error) {
-	r.ParseForm()
-	info := tcpSniffInfo{}
+func parseSniffParam(r *http.Request) (tcpSniffInfo, error) {
+	var info tcpSniffInfo
 
-	info.SrcAddr = template.HTMLEscapeString(r.FormValue(form_key_src_addr))
-	if info.SrcAddr == "" {
-		return tcpSniffInfo{}, errors.New("empty src addr")
-	}
-	srcPort, err := strconv.Atoi(template.HTMLEscapeString(r.FormValue(form_key_src_port)))
-	if err != nil {
-		return tcpSniffInfo{}, errors.New("invalid src port")
+	if err := r.ParseForm(); err != nil {
+		return info, err
+	} else if srcAddr := template.HTMLEscapeString(r.FormValue(form_key_src_addr)); srcAddr == "" {
+		return info, errors.New("empty src addr")
+	} else if srcPort, err := strconv.Atoi(template.HTMLEscapeString(r.FormValue(form_key_src_port))); err != nil {
+		return info, err
+	} else if dstAddr := template.HTMLEscapeString(r.FormValue(form_key_dst_addr)); dstAddr == "" {
+		return info, errors.New("empty dst addr")
+	} else if dstPort, err := strconv.Atoi(template.HTMLEscapeString(r.FormValue(form_key_dst_port))); err != nil {
+		return info, err
 	} else {
+		info.SrcAddr = srcAddr
 		info.SrcPort = uint16(srcPort)
-	}
-	info.DstAddr = template.HTMLEscapeString(r.FormValue(form_key_dst_addr))
-	if info.DstAddr == "" {
-		return tcpSniffInfo{}, errors.New("empty dst addr")
-	}
-	dstPort, err := strconv.Atoi(template.HTMLEscapeString(r.FormValue(form_key_dst_port)))
-	if err != nil {
-		return tcpSniffInfo{}, errors.New("invalid dst port")
-	} else {
+		info.DstAddr = dstAddr
 		info.DstPort = uint16(dstPort)
 	}
 
 	return info, nil
 }
 
+func siteTcpSniff(info tcpSniffInfo) ([]byte, error) {
+	var data bytes.Buffer
+
+	if tmpl, err := template.New("tmplTcpSniff").Parse(tmplTcpSniff); err != nil {
+		return nil, err
+	} else if err := tmpl.Execute(&data, info); err != nil {
+		return nil, err
+	}
+
+	return data.Bytes(), nil
+}
+
 func OnTcpSniff(w http.ResponseWriter, r *http.Request) {
 	if websocket.IsWebSocketUpgrade(r) {
 
 		// 解析参数
-		info, err := parseParam(r)
+		info, err := parseSniffParam(r)
 		if err != nil {
 			log.Println(err.Error())
 			return
@@ -78,14 +86,12 @@ func OnTcpSniff(w http.ResponseWriter, r *http.Request) {
 
 		// 开始嗅探
 		if info.DstPort == 0 {
-			err := sniff.SniffNewSocket(info.SrcPort, messages, done)
-			if err != nil {
+			if err := sniff.SniffNewSocket(info.SrcPort, messages, done); err != nil {
 				log.Println("SniffNewSocket", err.Error())
 				return
 			}
 		} else {
-			err := sniff.SniffSocket(info.SrcAddr, info.SrcPort, info.DstAddr, info.DstPort, messages, done)
-			if err != nil {
+			if err := sniff.SniffSocket(info.SrcAddr, info.SrcPort, info.DstAddr, info.DstPort, messages, done); err != nil {
 				log.Println("SniffSocket", err.Error())
 				return
 			}
@@ -110,21 +116,12 @@ func OnTcpSniff(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else if r.Method == "GET" {
-		info, err := parseParam(r)
-		if err != nil {
+		if info, err := parseSniffParam(r); err != nil {
 			fmt.Fprintf(w, err.Error())
-			return
-		}
-
-		tmpl, err := template.New("tmplTcpSniff").Parse(tmplTcpSniff)
-		if err != nil {
+		} else if data, err := siteTcpSniff(info); err != nil {
 			fmt.Fprintf(w, err.Error())
-			return
-		}
-
-		if err = tmpl.Execute(w, info); err != nil {
-			log.Println(err.Error())
-			return
+		} else {
+			w.Write(data)
 		}
 	}
 }

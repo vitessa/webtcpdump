@@ -1,9 +1,9 @@
 package site
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"sort"
 
@@ -79,30 +79,36 @@ func getListenStat() ([]netStat, error) {
 	return stats, nil
 }
 
+func siteListen(info netStatInfo) ([]byte, error) {
+	var data bytes.Buffer
+
+	if tmpl, err := template.New("tmplListen").Parse(tmplListen); err != nil {
+		return nil, err
+	} else if err := tmpl.Execute(&data, info); err != nil {
+		return nil, err
+	}
+
+	return data.Bytes(), nil
+}
+
 func OnListen(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		r.ParseForm()
+		var info netStatInfo
 
-		// 网卡
-		stats, err := getListenStat()
-		if err != nil {
+		// 解析参数、网络信息
+		if err := r.ParseForm(); err != nil {
 			fmt.Fprintf(w, err.Error())
-			return
-		}
-
-		info := netStatInfo{
-			Stats: stats,
-		}
-
-		tmpl, err := template.New("tmplListen").Parse(tmplListen)
-		if err != nil {
+		} else if stats, err := getListenStat(); err != nil {
 			fmt.Fprintf(w, err.Error())
-			return
+		} else {
+			info.Stats = stats
 		}
 
-		if err = tmpl.Execute(w, info); err != nil {
-			log.Println(err.Error())
-			return
+		// 解析模板，发送信息
+		if data, err := siteListen(info); err != nil {
+			fmt.Fprintf(w, err.Error())
+		} else {
+			w.Write(data)
 		}
 	}
 }
