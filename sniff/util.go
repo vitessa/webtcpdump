@@ -34,11 +34,9 @@ func init() {
 			continue
 		} else {
 			for _, addr := range addrs {
-				ip, _, err := net.ParseCIDR(addr.String())
-				if err != nil {
-					continue
+				if ip, _, err := net.ParseCIDR(addr.String()); err == nil {
+					SeqLocalAddr = append(SeqLocalAddr, ip)
 				}
-				SeqLocalAddr = append(SeqLocalAddr, ip)
 			}
 		}
 	}

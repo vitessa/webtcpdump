@@ -30,7 +30,7 @@ func main() {
 	// 监听地址
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 	srv := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", *host, *port),
+		Addr:         addr,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
