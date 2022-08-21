@@ -207,8 +207,11 @@ var tmplTcpSniff = `<!DOCTYPE html>
             function writeToScreen(message)
             {
                 document.getElementById("monitor").insertAdjacentText("beforeend", message + "\n");
-                // 滚动到底部
-                window.scroll(0, document.body.scrollHeight);
+                if (window.getSelection().toString() == "")
+                {
+                    // 滚动到底部
+                    window.scroll(0, document.body.scrollHeight);
+                }
             }
 
             function clickButtonTest()
