@@ -12,10 +12,14 @@ import (
 	"github.com/vitessa/webtcpdump/site"
 )
 
-var host = flag.String("n", "", "listen port for webtcpdump")
-var port = flag.Int("p", 8000, "listen port for webtcpdump")
+var (
+	host string
+	port uint64
+)
 
 func init() {
+	flag.StringVar(&host, "n", "", "listen port for webtcpdump")
+	flag.Uint64Var(&port, "p", 8000, "listen port for webtcpdump")
 	flag.Parse()
 }
 
@@ -28,7 +32,7 @@ func main() {
 	http.HandleFunc("/tcpsniff", site.OnTcpSniff)
 
 	// 监听地址
-	addr := fmt.Sprintf("%s:%d", *host, *port)
+	addr := fmt.Sprintf("%s:%d", host, port)
 	srv := &http.Server{
 		Addr:         addr,
 		ReadTimeout:  10 * time.Second,
