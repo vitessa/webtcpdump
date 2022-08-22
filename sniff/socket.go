@@ -27,16 +27,7 @@ func SniffNewSocket(port uint16, ch chan<- string, done <-chan struct{}) error {
 		}
 
 		go func(handle *pcap.Handle) {
-			defer func() {
-				// 异常处理
-				if err := recover(); err != nil {
-					log.Println("panic:", err)
-				}
-				// 关闭所有设备
-				for _, handle := range handles {
-					handle.Close()
-				}
-			}()
+			defer func() { handle.Close() }()
 
 			srcAddr, dstAddr, dstPort := net.IP{}, net.IP{}, uint16(0)
 			packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
@@ -45,7 +36,7 @@ func SniffNewSocket(port uint16, ch chan<- string, done <-chan struct{}) error {
 			for {
 				select {
 				case <-done:
-					break
+					return
 				case packet, ok := <-packets:
 					if !ok {
 						return
@@ -59,6 +50,13 @@ func SniffNewSocket(port uint16, ch chan<- string, done <-chan struct{}) error {
 					if dstPort == 0 {
 						if uint16(tcp.DstPort) != port || !tcp.SYN {
 							break
+						}
+
+						// 关闭其他设备
+						for _, ele := range handles {
+							if ele != handle {
+								ele.Close()
+							}
 						}
 
 						// 转新的 BPF
@@ -80,7 +78,10 @@ func SniffNewSocket(port uint16, ch chan<- string, done <-chan struct{}) error {
 					}
 
 					message := PrasePacketToString(packet)
-					ch <- message
+					select {
+					case <-done:
+					case ch <- message:
+					}
 				}
 			}
 		}(handle)
@@ -109,10 +110,6 @@ func SniffSocket(srcAddr string, srcPort uint16, dstAddr string, dstPort uint16,
 		}
 		go func(handle *pcap.Handle) {
 			defer func() {
-				// 异常处理
-				if err := recover(); err != nil {
-					log.Println("panic:", err)
-				}
 				// 关闭所有设备
 				for _, handle := range handles {
 					handle.Close()
@@ -131,7 +128,10 @@ func SniffSocket(srcAddr string, srcPort uint16, dstAddr string, dstPort uint16,
 					}
 
 					message := PrasePacketToString(packet)
-					ch <- message
+					select {
+					case <-done:
+					case ch <- message:
+					}
 				}
 			}
 		}(handle)

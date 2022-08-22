@@ -68,7 +68,6 @@ func OnTcpSniff(w http.ResponseWriter, r *http.Request) {
 
 		// 创建通道
 		messages := make(chan string)
-		defer close(messages)
 		done := make(chan struct{})
 		defer close(done)
 
