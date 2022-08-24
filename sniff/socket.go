@@ -50,6 +50,10 @@ func SniffNewSocket(port uint16, ch chan<- string, done <-chan struct{}) error {
 					if dstPort == 0 {
 						if uint16(tcp.DstPort) != port || !tcp.SYN {
 							break
+						} else if uint16(tcp.DstPort) == port && !IsLocalAddr(dst) {
+							break
+						} else if uint16(tcp.SrcPort) == port && !IsLocalAddr(src) {
+							break
 						}
 
 						// 关闭其他设备
