@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"webtcpdump/sniff"
+	"github.com/vitessa/webtcpdump/sniff"
 
 	"github.com/gorilla/websocket"
 )
