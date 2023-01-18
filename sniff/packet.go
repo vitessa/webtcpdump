@@ -2,6 +2,7 @@ package sniff
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
