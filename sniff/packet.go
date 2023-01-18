@@ -38,21 +38,35 @@ import (
 func PrasePacket(packet gopacket.Packet) (srcAddr net.IP, dstAddr net.IP, tcp layers.TCP, payload gopacket.Payload, err error) {
 	var (
 		eth layers.Ethernet
+		lb  layers.Loopback
 		ip4 layers.IPv4
 		ip6 layers.IPv6
 	)
 
 	dlc := gopacket.DecodingLayerContainer(gopacket.DecodingLayerArray(nil)).
 		Put(&eth).
+		Put(&lb).
 		Put(&ip4).
 		Put(&ip6).
 		Put(&tcp).
 		Put(&payload)
-	decoder := dlc.LayersDecoder(layers.LayerTypeEthernet, gopacket.NilDecodeFeedback)
 	decoded := []gopacket.LayerType{}
+	
+	// 尝试Ethernet和Loopback
+	for _, firstLayer := range [...]gopacket.LayerType{layers.LayerTypeEthernet, layers.LayerTypeLoopback} {
+		// 开始解码
+		decoder := dlc.LayersDecoder(firstLayer, gopacket.NilDecodeFeedback)
+		if lt, e := decoder(packet.Data(), &decoded); e != nil {
+			continue
+		} else if lt != gopacket.LayerTypeZero {
+			continue
+		} else if len(decoded) <= 1 {
+			continue
+		}
+	}
 
-	// 开始解码
-	if _, err = decoder(packet.Data(), &decoded); err != nil {
+	if len(decoded) <= 1 {
+		err = errors.New("PrasePacket error: decode failed")
 		return
 	}
 
